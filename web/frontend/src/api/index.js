@@ -16,26 +16,68 @@ function handlerResponse(response) {
   }
 }
 
+function sendGet(url, params) {
+  const token = axios.CancelToken.source()
+  if (params) {
+    params.cancelToken = token.token
+  }
+  else {
+    params = {
+        cancelToken: token.token
+    }
+  }
+  return {
+      rsp: axios.get(url, params).then(handlerResponse),
+      cancel: token.cancel
+  }
+}
+
 export function getDevices() {
-  return axios.get('/api/devices').then(handlerResponse)
+  return sendGet('/api/devices')
 }
 
 export function listWifiAp(device) {
-  return axios.get(`/api/wifi`, {
+  return sendGet(`/api/wifi`, {
     params: {
       device,
     },
-  }).then(handlerResponse)
+  })
+}
+
+function sendPost(url, data) {
+  const token = axios.CancelToken.source()
+  return {
+      rsp: axios.post(url, data, {
+          cancelToken: token.token,
+      }).then(handlerResponse),
+      cancel: token.cancel
+  }
 }
 
 export function createWifiAp(device) {
-  return axios.post('/api/wifi', device).then(handlerResponse)
+  return sendPost('/api/wifi', device)
+}
+
+function sendDelete(url, params) {
+  const token = axios.CancelToken.source()
+  if (params) {
+    params.cancelToken = token.token
+  }
+  else {
+    params = {
+      cacheToken: token.token,
+    }
+  }
+  return {
+      rsp: axios.delete(url, params).then(handlerResponse),
+      cancel: token.cancel
+  }
 }
 
 export function deleteWifiAp(connection_uuid) {
-  return axios.delete(`/api/wifi`, {
+  return sendDelete(`/api/wifi`, {
     params: {
       connection_uuid,
     },
-  }).then(handlerResponse)
+  })
 }

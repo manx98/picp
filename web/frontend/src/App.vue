@@ -1,6 +1,6 @@
 <script setup>
-import { Connection, Expand, Setting } from '@element-plus/icons-vue'
 import { onMounted, ref, shallowRef, watch } from 'vue'
+import { MdMoreHoriz, MdSettings, MdSettingsEthernet } from 'vue-icons-plus/md'
 import { useRouter } from 'vue-router'
 import { windows_size } from '~/utils/index.js'
 
@@ -28,7 +28,7 @@ const showDrawer = shallowRef(false)
     <el-container>
       <el-affix v-if="is_mobile" offset="200">
         <el-button style="opacity: 0.7" size="small" type="primary" @click="showDrawer = true">
-          <el-icon><Expand /></el-icon>
+          <MdMoreHoriz />
         </el-button>
       </el-affix>
       <el-drawer
@@ -40,13 +40,13 @@ const showDrawer = shallowRef(false)
       >
         <el-menu router :default-active="current" @click="showDrawer = false">
           <el-menu-item index="/">
-            <el-icon><Connection /></el-icon>
+            <MdSettingsEthernet style="margin-right: 10px" />
             <template #title>
               设备
             </template>
           </el-menu-item>
           <el-menu-item index="/setting">
-            <el-icon><Setting /></el-icon>
+            <MdSettings style="margin-right: 10px" />
             <template #title>
               设置
             </template>
@@ -57,13 +57,13 @@ const showDrawer = shallowRef(false)
         <el-scrollbar>
           <el-menu router style="height:100vh" :default-active="current">
             <el-menu-item index="/">
-              <el-icon><Connection /></el-icon>
+              <MdSettingsEthernet style="margin-right: 10px" />
               <template #title>
                 设备
               </template>
             </el-menu-item>
             <el-menu-item index="/setting">
-              <el-icon><Setting /></el-icon>
+              <MdSettings style="margin-right: 10px" />
               <template #title>
                 设置
               </template>
@@ -77,3 +77,9 @@ const showDrawer = shallowRef(false)
     </el-container>
   </el-config-provider>
 </template>
+
+<style scoped>
+:deep(.ep-main) {
+  padding: 0;
+}
+</style>

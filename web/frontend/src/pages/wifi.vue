@@ -1,11 +1,12 @@
 <script setup>
-import { Refresh, Search } from '@element-plus/icons-vue'
-import { computed, onMounted, ref, shallowRef } from 'vue'
+import {computed, onBeforeUnmount, onMounted, ref, shallowRef} from 'vue'
+import { MdRefresh, MdSearch } from 'vue-icons-plus/md'
 import { useRouter } from 'vue-router'
 import { createWifiAp, deleteWifiAp, listWifiAp } from '~/api'
 import ConfirmDialog from '~/components/ConfirmDialog.vue'
 import WifiConnectDialog from '~/components/WifiConnectDialog.vue'
 import { showInfo, windows_size } from '~/utils'
+import axios from 'axios'
 
 const router = useRouter()
 
@@ -13,6 +14,13 @@ const loading = shallowRef(false)
 const wifiList = shallowRef([])
 const filterInputKey = shallowRef('')
 let oldValue = []
+let lastReq = null
+
+onBeforeUnmount(() => {
+  if (lastReq) {
+    lastReq.cancel()
+  }
+})
 
 function doFilterInputKey() {
   wifiList.value = oldValue.filter((item) => {
@@ -27,7 +35,8 @@ function doFilterInputKey() {
 }
 function loadWifiAp() {
   loading.value = true
-  listWifiAp(router.currentRoute.value.query.device).then((apList) => {
+  lastReq = listWifiAp(router.currentRoute.value.query.device)
+  lastReq.rsp.then((apList) => {
     apList.forEach((ap) => {
       if (ap.active) {
         ap.show_tag = true
@@ -43,6 +52,9 @@ function loadWifiAp() {
     oldValue = apList
     doFilterInputKey()
   }).catch((err) => {
+    if(axios.isCancel(err)) {
+      return
+    }
     showInfo(true, err.message)
   }).finally(() => {
     loading.value = false
@@ -71,12 +83,16 @@ function configWifi({ config, done }) {
   if (config.password && config.password.length > 0) {
     query.password = config.password.trim()
   }
-  createWifiAp(query).then(() => {
+  lastReq = createWifiAp(query)
+  lastReq.rsp.then(() => {
     showInfo(false, '添加成功')
     show_wifi_connect.value = false
     loadWifiAp()
     done()
   }).catch((e) => {
+    if(axios.isCancel(e)){
+      return
+    }
     done(e.message)
   })
 }
@@ -96,14 +112,18 @@ const confirmRow = shallowRef({})
 const confirmType = shallowRef(0)
 
 function changeConnectionState(connection_uuid, active, done) {
-  createWifiAp({
+  lastReq = createWifiAp({
     connection_uuid,
     active,
-  }).then(() => {
+  })
+  lastReq.rsp.then(() => {
     showInfo(false, `连接${active ? '已建立' : '已断开'}`)
     showConfirmDialog.value = false
     loadWifiAp()
   }).catch((e) => {
+    if(axios.isCancel(e)) {
+      return
+    }
     showInfo(true, e.message)
   }).finally(done)
 }
@@ -131,10 +151,15 @@ function showDeleteConfirm(row) {
 
 function doConfirm(done) {
   if (confirmType.value === 0) {
-    deleteWifiAp(confirmRow.value.connection_uuid).then(() => {
+    lastReq=deleteWifiAp(confirmRow.value.connection_uuid)
+    lastReq.rsp.then(() => {
       showConfirmDialog.value = false
       loadWifiAp()
-    }).catch((e) => {
+    })
+    lastReq.rsp.catch((e) => {
+      if(axios.isCancel(e)) {
+        return
+      }
       showInfo(true, e.message)
     }).finally(done)
   }
@@ -177,22 +202,20 @@ function doShowDisconnectConfirm(row) {
     </template>
   </ConfirmDialog>
   <WifiConnectDialog v-model:show="show_wifi_connect" :info="configInfo" @ok="configWifi" />
-  <div style="display:flex; flex-direction: row;align-items: center;justify-items: center">
+  <div style="display:flex; flex-direction: row;align-items: center;justify-items: center;padding: 20px 20px 0 20px">
     <el-input v-model:model-value="filterInputKey" style="max-width: 400px" @keydown.enter="doFilterInputKey" :disabled="loading" clearable @clear="doFilterInputKey">
       <template #prefix>
         <span>名称</span>
       </template>
       <template #append>
-        <el-button type="text" @click="doFilterInputKey">
-          <el-icon><Search /></el-icon>
-        </el-button>
+        <el-button type="text" :icon="MdSearch" @click="doFilterInputKey"/>
       </template>
     </el-input>
-    <el-button style="margin-left: 10px;width: 100px" type="primary" :icon="Refresh" :disabled="loading" @click="loadWifiAp">
+    <el-button style="margin-left: 10px;width: 100px" type="primary" :icon="MdRefresh" :disabled="loading" @click="loadWifiAp">
       刷新
     </el-button>
   </div>
-  <el-table v-loading="loading" :data="wifiList" :height="tableHeight">
+  <el-table v-loading="loading" :data="wifiList" :height="tableHeight" style="padding: 0 20px 20px 20px">
     <el-table-column min-width="125px" label="SSID">
       <template #default="scope">
         <el-tag v-if="scope.row.show_tag" style="margin-right: 5px" :type="scope.row.tag_type" size="small">
