@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"github.com/golang/freetype/truetype"
@@ -12,6 +13,7 @@ import (
 	"picp/config"
 	"picp/logger"
 	"picp/sh1106"
+	"sync"
 )
 
 //go:embed fonts/BoutiqueBitmap9x9_1.6.ttf
@@ -32,21 +34,40 @@ func init() {
 }
 
 var display *sh1106.Device
+var displayLock sync.Mutex
 
-func sh1106Init() {
-	bus, err := config.SH1106.Create()
+func sh1106Init(ctx context.Context) {
+	var err error
+	display, err = createDisplay(&config.SH1106)
+	if err != nil {
+		logger.Fatal("create sh1106 device failed", zap.Error(err))
+	}
+	if display == nil {
+		_ = statusRunner.Stop(ctx)
+	} else {
+		statusRunner.Start()
+	}
+}
+
+func createDisplay(cfg *config.SH1106Config) (*sh1106.Device, error) {
+	bus, err := cfg.Create()
 	if err != nil {
 		if !errors.Is(err, config.ErrorSensorDisabled) {
-			logger.Fatal("create sh1106 i2c bus failed", zap.Error(err))
+			return nil, err
 		}
+		return nil, nil
 	} else {
-		display, err = sh1106.NewI2C(bus, sh1106.Config{
+		var device *sh1106.Device
+		device, err = sh1106.NewI2C(bus, sh1106.Config{
 			Height:   int16(config.SH1106.Height),
 			VccState: config.SH1106.GetMode(),
 			Width:    int16(config.SH1106.Width),
 		})
 		if err != nil {
-			logger.Fatal("create sh1106 device failed", zap.Error(err))
+			_ = bus.Close()
+			return nil, err
+		} else {
+			return device, nil
 		}
 	}
 }
@@ -127,8 +148,63 @@ func drawText(width, height int, opt *DrawOptions, lines ...string) *image.Gray 
 }
 
 func Display(opt *DrawOptions, lines ...string) error {
+	displayLock.Lock()
+	defer displayLock.Unlock()
 	if display == nil {
 		return nil
 	}
 	return display.DisplayImage(drawText(display.GetWidth(), display.GetHeight(), opt, lines...))
+}
+
+var statusOpt = &DrawOptions{
+	VerticalAlign: true,
+}
+
+func DisplayVerticalAlign(msg ...string) {
+	err := Display(statusOpt, msg...)
+	if err != nil {
+		logger.Warn("display vertical align error", zap.Error(err))
+	}
+}
+
+var alignOpt = &DrawOptions{
+	HorizontalAlign: true,
+	VerticalAlign:   true,
+}
+
+func DisplayAllAlign(msg ...string) {
+	err := Display(alignOpt, msg...)
+	if err != nil {
+		logger.Warn("display all align error", zap.Error(err))
+	}
+}
+
+func SetDisplayConfig(cfg *config.SH1106Config) error {
+	err := config.Validate(cfg)
+	if err != nil {
+		return err
+	}
+	displayLock.Lock()
+	defer displayLock.Unlock()
+	device, err := createDisplay(cfg)
+	if err != nil {
+		return err
+	}
+	err = config.SaveSH1106(cfg)
+	if err != nil {
+		if device != nil {
+			_ = device.Close()
+		}
+		return err
+	}
+	if display != nil {
+		_ = display.Close()
+	}
+	display = device
+	if display == nil {
+		_ = statusRunner.Stop(context.Background())
+	} else {
+		statusRunner.Start()
+	}
+	return nil
 }

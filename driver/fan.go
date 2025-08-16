@@ -1,11 +1,14 @@
 package driver
 
 import (
+	"context"
 	"github.com/stianeikeland/go-rpio/v4"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"picp/config"
 	"picp/logger"
+	"picp/utils"
+	"time"
 )
 
 const (
@@ -13,33 +16,60 @@ const (
 	maxCycleLen = 100
 )
 
-var fanPin rpio.Pin
 var fanEnable atomic.Bool
 
-func FanInit() {
-	if config.Fan.Enable {
-		fanPin = rpio.Pin(config.Fan.Pin)
-		fanPin.Pwm()
-		fanPin.Freq(maxFanHz)
-		fanPin.DutyCycle(0, maxCycleLen)
-	}
+var fanRunner *utils.Runner
+
+func fanInit(ctx context.Context) {
+	fanRunner = utils.NewRunner(ctx, runFan)
+	fanRunner.Start()
 }
 
-func EnableFan(enable bool) {
-	if config.Fan.Enable {
-		logger.Debug("change fan status", zap.Bool("enable", enable))
-		if enable {
-			fanEnable.Store(true)
-			fanPin.DutyCycle(uint32(config.Fan.Speed), maxCycleLen)
+func runFan(ctx context.Context) {
+	cfg := config.GetFanCfg()
+	if !cfg.Enable {
+		return
+	}
+	fanPin := rpio.Pin(cfg.Pin)
+	fanPin.Pwm()
+	fanPin.Freq(maxFanHz)
+	fanPin.DutyCycle(0, maxCycleLen)
+	tik := time.NewTicker(3 * time.Second)
+	defer func() {
+		tik.Stop()
+		changeFanSpeed(fanPin, 0)
+	}()
+	for ctx.Err() == nil {
+		temperature, err := utils.GetCpuTemperature()
+		if err != nil {
+			logger.Debug("cpu temperature error", zap.Error(err))
 		} else {
-			fanPin.DutyCycle(0, maxCycleLen)
-			fanEnable.Store(false)
+			if temperature > cfg.MaxTemp && !fanEnable.Load() {
+				changeFanSpeed(fanPin, uint32(cfg.Speed))
+			} else if temperature < cfg.MinTemp && fanEnable.Load() {
+				changeFanSpeed(fanPin, 0)
+			}
 		}
-	} else {
-		logger.Debug("fan is disabled", zap.Bool("enable", enable))
+		select {
+		case <-tik.C:
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
-func IsFanEnable() bool {
-	return fanEnable.Load()
+func changeFanSpeed(fanPin rpio.Pin, speed uint32) {
+	logger.Debug("change fan speed", zap.Uint32("speed", speed))
+	fanEnable.Store(speed != 0)
+	fanPin.DutyCycle(speed, maxCycleLen)
+}
+
+func SetFanConfig(cfg *config.FanChanelCfg) error {
+	err := config.SetFanCfg(cfg)
+	if err != nil {
+		return err
+	}
+	_ = fanRunner.Stop(context.Background())
+	fanRunner.Start()
+	return nil
 }

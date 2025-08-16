@@ -303,6 +303,8 @@ func (d *Device) Close() error {
 	if d.bus == nil {
 		return nil
 	}
+	d.ClearBuffer()
+	_ = d.Display(true)
 	return d.bus.Close()
 }
 

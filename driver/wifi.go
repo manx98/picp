@@ -1,22 +1,142 @@
 package driver
 
 import (
+	"context"
 	"github.com/stianeikeland/go-rpio/v4"
 	"picp/config"
+	"picp/utils"
+	"time"
 )
 
-var wifiPin rpio.Pin
+var wifiRunner *utils.Runner
 
-func wifiInit() {
-	if config.WIFI.Enable {
-		wifiPin = rpio.Pin(config.WIFI.Pin)
-		wifiPin.Input()
+func wifiInit(ctx context.Context) {
+	wifiRunner = utils.NewRunner(ctx, wifiHandler)
+	wifiRunner.Start()
+}
+
+type WifiInvoker struct {
+	cfg           *config.WifiConfig
+	enabled       bool
+	notifyTimeout time.Time
+	ctx           context.Context
+}
+
+func (i *WifiInvoker) startAp() {
+	i.showNotify("Connect...")
+	err := startWifiAp(i.cfg)
+	if err == nil {
+		i.enabled = true
+		i.showNotify("Connect success")
+	} else {
+		i.showNotify("Connect occur error")
 	}
 }
 
-func isWifi() bool {
-	if config.WIFI.Enable {
-		return wifiPin.Read() == rpio.High
+func (i *WifiInvoker) stopAp() {
+	i.showNotify("Stopping...")
+	err := stopWifiAp(i.cfg)
+	if err == nil {
+		i.enabled = false
+		i.showNotify("Stop success")
+	} else {
+		i.showNotify("Stop occur error")
+	}
+}
+
+func (i *WifiInvoker) checkNotify(force bool) bool {
+	if !i.notifyTimeout.IsZero() {
+		if force || time.Now().After(i.notifyTimeout) {
+			i.notifyTimeout = time.Time{}
+			StatusShowEnable(true)
+		}
+		return true
 	}
 	return false
+}
+
+func (i *WifiInvoker) showNotify(msg string) {
+	StatusShowEnable(false)
+	i.notifyTimeout = time.Now().Add(time.Second * 3)
+	DisplayAllAlign(msg)
+}
+
+func (i *WifiInvoker) toggleAp() {
+	if i.enabled {
+		i.startAp()
+	} else {
+		i.stopAp()
+	}
+}
+
+func (i *WifiInvoker) Run() {
+	_ = stopWifiAp(i.cfg)
+	if !i.cfg.Enable {
+		return
+	}
+	wifiPin := rpio.Pin(i.cfg.Pin)
+	wifiPin.Input()
+	timer := time.NewTicker(time.Millisecond * 100)
+	defer func() {
+		timer.Stop()
+		StatusShowEnable(true)
+	}()
+	lastApPress := false
+	for {
+		select {
+		case <-timer.C:
+			press := wifiPin.Read() == rpio.High
+			if press != lastApPress {
+				if lastApPress {
+					if !i.checkNotify(true) {
+						i.toggleAp()
+					}
+				} else {
+					i.checkNotify(false)
+				}
+				lastApPress = !lastApPress
+			} else {
+				i.checkNotify(false)
+			}
+		case <-i.ctx.Done():
+			return
+		}
+	}
+}
+
+func NewWifiInvoker(ctx context.Context, cfg *config.WifiConfig) *WifiInvoker {
+	invoker := &WifiInvoker{cfg: cfg, ctx: ctx}
+	return invoker
+}
+
+func wifiHandler(ctx context.Context) {
+	cfg := config.GetWifiConfig()
+	_ = stopWifiAp(&cfg)
+	if !cfg.Enable {
+		return
+	}
+	NewWifiInvoker(ctx, &cfg).Run()
+}
+
+func startWifiAp(cfg *config.WifiConfig) error {
+	return utils.ConnectWifi(utils.WifiAPSetting{
+		Name:       cfg.Name,
+		SSID:       cfg.SSID,
+		DeviceName: cfg.DeviceName,
+		Password:   cfg.Password,
+	})
+}
+
+func stopWifiAp(cfg *config.WifiConfig) error {
+	return utils.RemoveConnectionByID(cfg.Name)
+}
+
+func SetWifiConfig(wifi *config.WifiConfig) error {
+	err := config.SetWifiConfig(wifi)
+	if err != nil {
+		return err
+	}
+	_ = wifiRunner.Stop(context.Background())
+	wifiRunner.Start()
+	return nil
 }

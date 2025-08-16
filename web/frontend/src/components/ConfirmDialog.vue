@@ -1,5 +1,6 @@
 <script>
-import {windows_size} from '~/utils'
+import { windows_size } from '~/utils'
+
 export default {
   name: 'ConfirmDialog',
   props: {
@@ -73,8 +74,8 @@ export default {
 
 <template>
   <el-dialog
-      :style="{maxWidth: windows_size.value.width + 'px'}"
-    v-model="internalShow" :width="width" :modal="false" :close-on-click-modal="!loading" append-to-body draggable
+    v-model="internalShow"
+    :style="{ maxWidth: `${windows_size.value.width}px` }" :width="width" :modal="false" :close-on-click-modal="!loading" append-to-body draggable
     destroy-on-close :show-close="!loading"
   >
     <template #title>

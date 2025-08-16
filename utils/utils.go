@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"picp/logger"
 	"strconv"
+	"sync"
 	"syscall"
 )
 
@@ -76,4 +77,60 @@ func ByteSize(bytes int64, minValue float64) string {
 		}
 	}
 	return fmt.Sprintf("%dYB", bytes)
+}
+
+type Runner struct {
+	callback func(ctx context.Context)
+	rootCtx  context.Context
+	ctx      context.Context
+	stop     context.CancelFunc
+	doneCtx  context.Context
+	done     context.CancelFunc
+	lock     sync.Mutex
+}
+
+func (tr *Runner) run() {
+	defer func() {
+		tr.lock.Lock()
+		defer tr.lock.Unlock()
+		tr.done()
+		tr.done = nil
+	}()
+	tr.callback(tr.ctx)
+}
+
+func (tr *Runner) Start() {
+	tr.lock.Lock()
+	defer tr.lock.Unlock()
+	if tr.done == nil {
+		tr.ctx, tr.stop = context.WithCancel(tr.rootCtx)
+		tr.doneCtx, tr.done = context.WithCancel(context.Background())
+		go tr.run()
+	}
+}
+
+func (tr *Runner) Stop(ctx context.Context) error {
+	tr.lock.Lock()
+	needStop := tr.done != nil
+	doneCtx := tr.doneCtx
+	if needStop {
+		tr.stop()
+	}
+	tr.lock.Unlock()
+	if needStop {
+		select {
+		case <-doneCtx.Done():
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
+}
+
+func NewRunner(ctx context.Context, callback func(ctx context.Context)) *Runner {
+	tr := &Runner{
+		rootCtx:  ctx,
+		callback: callback,
+	}
+	return tr
 }

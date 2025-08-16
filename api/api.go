@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	"net/http"
 	"picp/config"
+	"picp/driver"
 	"picp/logger"
 	"picp/utils"
 	"strings"
@@ -17,6 +18,12 @@ func initApi(group *gin.RouterGroup) {
 	group.GET("/wifi", getWifiList)
 	group.POST("/wifi", connectWifi)
 	group.DELETE("/wifi", deleteConnection)
+	group.GET("/wifi/config", getWifiConfig)
+	group.POST("/wifi/config", setWifiConfig)
+	group.GET("/fan", getFanConfig)
+	group.POST("/fan", setFanConfig)
+	group.GET("/display", getDisplayCfg)
+	group.POST("/display", setDisplayCfg)
 }
 
 func replayError(ctx *gin.Context, err error) {
@@ -156,6 +163,60 @@ func deleteConnection(ctx *gin.Context) {
 		return
 	}
 	err := utils.RemoveConnection(connectionUuid)
+	if err != nil {
+		replayError(ctx, err)
+	} else {
+		replaySuccess(ctx, nil)
+	}
+}
+
+func getWifiConfig(ctx *gin.Context) {
+	replaySuccess(ctx, config.GetWifiConfig())
+}
+
+func setWifiConfig(ctx *gin.Context) {
+	var wifiCfg config.WifiConfig
+	if err := ctx.ShouldBindJSON(&wifiCfg); err != nil {
+		replayError(ctx, err)
+		return
+	}
+	err := driver.SetWifiConfig(&wifiCfg)
+	if err != nil {
+		replayError(ctx, err)
+	} else {
+		replaySuccess(ctx, nil)
+	}
+}
+
+func getFanConfig(ctx *gin.Context) {
+	replaySuccess(ctx, config.GetFanCfg())
+}
+
+func setFanConfig(ctx *gin.Context) {
+	var fanCfg config.FanChanelCfg
+	if err := ctx.ShouldBindJSON(&fanCfg); err != nil {
+		replayError(ctx, err)
+		return
+	}
+	err := driver.SetFanConfig(&fanCfg)
+	if err != nil {
+		replayError(ctx, err)
+	} else {
+		replaySuccess(ctx, nil)
+	}
+}
+
+func getDisplayCfg(ctx *gin.Context) {
+	replaySuccess(ctx, config.GetSH1106Cfg())
+}
+
+func setDisplayCfg(ctx *gin.Context) {
+	var displayCfg config.SH1106Config
+	if err := ctx.ShouldBindJSON(&displayCfg); err != nil {
+		replayError(ctx, err)
+		return
+	}
+	err := driver.SetDisplayConfig(&displayCfg)
 	if err != nil {
 		replayError(ctx, err)
 	} else {

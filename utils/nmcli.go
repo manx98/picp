@@ -87,7 +87,7 @@ func runCmd(name string, arg ...string) (string, error) {
 	command := exec.Command(name, arg...)
 	output, err := command.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("ERROR %s: %w", output, err)
+		return "", fmt.Errorf("%s: %w", output, err)
 	}
 	return string(output), nil
 }
@@ -330,6 +330,20 @@ func RemoveConnection(uuid string) error {
 		return err
 	} else {
 		logger.Debug("delete connection success", zap.String("UUID", uuid), zap.String("out", out))
+	}
+	return nil
+}
+
+func RemoveConnectionByID(name string) error {
+	out, err := runCmd("nmcli", "connection", "delete", "id", name)
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "Error: unknown connection") {
+			return nil
+		}
+		logger.Warn("failed to delete connection by id", zap.String("id", name), zap.Error(err))
+		return err
+	} else {
+		logger.Debug("delete connection by id success", zap.String("id", name), zap.String("out", out))
 	}
 	return nil
 }

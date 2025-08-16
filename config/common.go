@@ -4,9 +4,11 @@ import (
 	"github.com/go-ini/ini"
 	"go.uber.org/zap"
 	"picp/logger"
+	"sync"
 )
 
 var Common *commonConfig
+var cfgLock sync.RWMutex
 
 type commonConfig struct {
 	cfg      *ini.Section `ini:"-"`
@@ -30,4 +32,7 @@ func initCommon() {
 			logger.Fatal("map common config failed", zap.Error(err))
 		}
 	}
+}
+func SaveCfg() error {
+	return rootCfg.SaveTo(*cfgPath)
 }

@@ -18,7 +18,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://raspbian:8087',
+        target: 'http://192.168.1.11:8080',
         changeOrigin: true,
       },
     },
