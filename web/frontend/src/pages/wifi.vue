@@ -55,6 +55,8 @@ function loadWifiAp() {
     if(axios.isCancel(err)) {
       return
     }
+    oldValue = []
+    doFilterInputKey()
     showInfo(true, err.message)
   }).finally(() => {
     loading.value = false

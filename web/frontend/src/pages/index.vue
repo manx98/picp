@@ -26,11 +26,13 @@ function loadDevices() {
   lastLoadDevicesQuery.rsp.then((devices) => {
     devicesTemp = devices
     doFilterInputKey()
-  }).catch((e) => {
+  }).catch((err) => {
     if(axios.isCancel(err)) {
       return
     }
-    showInfo(true, e.message)
+    devicesTemp = []
+    doFilterInputKey()
+    showInfo(true, err.message)
   }).finally(() => {
     loading.value = false
   })
@@ -45,11 +47,11 @@ function doFilterInputKey() {
     if (filterInputKey.value) {
       switch (filterType.value) {
         case '0':
-          return device.device && device.device.indexOf(filterInputKey.value) > -1
+          return device.device && device.device.includes(filterInputKey.value)
         case '1':
-          return device.type && device.type.indexOf(filterInputKey.value) > -1
+          return device.type && device.type.includes(filterInputKey.value)
         default:
-          return device.state && device.state.indexOf(filterInputKey.value) > -1
+          return device.state && device.state.includes(filterInputKey.value)
       }
     }
     return true;

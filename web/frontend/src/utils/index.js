@@ -34,4 +34,14 @@ function showInfo(is_error, msg) {
   }
 }
 
+export function showWarning(msg) {
+  ElMessage({
+    type: 'warning',
+    message: msg,
+    duration: 1500,
+    showClose: true,
+    offset: 50,
+  })
+}
+
 export { showInfo, windows_size }
