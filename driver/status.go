@@ -7,6 +7,7 @@ import (
 	"github.com/shirou/gopsutil/mem"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"picp/config"
 	"picp/logger"
 	"picp/utils"
 	"sync"
@@ -31,11 +32,12 @@ func initStatusRunner(ctx context.Context) {
 }
 
 func statusHandler(ctx context.Context) {
-	ticker := time.NewTicker(3 * time.Second)
+	interval := time.Second * time.Duration(config.SH1106.StatusInterval)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for ctx.Err() == nil {
 		if statusEnabled.Load() {
-			updateStatus(ctx)
+			updateStatus(ctx, interval)
 		}
 		select {
 		case <-ticker.C:
@@ -45,8 +47,8 @@ func statusHandler(ctx context.Context) {
 	}
 }
 
-func updateStatus(ctx context.Context) {
-	percent, err := cpu.PercentWithContext(ctx, time.Second, false)
+func updateStatus(ctx context.Context, interval time.Duration) {
+	percent, err := cpu.PercentWithContext(ctx, interval, false)
 	if err != nil {
 		cpuPercent = -1
 		logger.Debug("cpu percent error", zap.Error(err))
@@ -91,7 +93,9 @@ func StatusShowEnable(enabled bool) {
 	statusLock.Lock()
 	defer statusLock.Unlock()
 	statusEnabled.Store(enabled)
-	DisplayAllAlign(lastMsg...)
+	if enabled {
+		DisplayVerticalAlign(lastMsg...)
+	}
 }
 
 func displayStatus() {
@@ -127,4 +131,8 @@ func displayStatus() {
 		}
 		DisplayVerticalAlign(lastMsg...)
 	}
+}
+
+func closeStatus() {
+	_ = statusRunner.Stop(context.Background())
 }

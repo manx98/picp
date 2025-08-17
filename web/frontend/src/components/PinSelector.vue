@@ -340,6 +340,7 @@ nav {
   width: v-bind(view_width);
   min-height: 493px;
   background: #5f8645;
+  cursor: pointer;
 }
 
 #gpio:before {

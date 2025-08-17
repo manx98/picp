@@ -17,3 +17,9 @@ func Init(ctx context.Context) {
 	wifiInit(ctx)
 	fanInit(ctx)
 }
+func Close() {
+	closeWifi()
+	closeStatus()
+	closeFan()
+	closeDisplay()
+}

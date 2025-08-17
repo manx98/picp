@@ -23,6 +23,9 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    outDir: '../dist',
+  },
   css: {
     preprocessorOptions: {
       scss: {

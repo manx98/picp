@@ -1,0 +1,14 @@
+[Unit]
+Description=picp Service
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/picp
+ExecStart=/opt/picp/picp
+Restart=always
+RestartSec=5
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

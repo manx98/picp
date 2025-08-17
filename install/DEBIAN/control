@@ -1,0 +1,11 @@
+Package: picp
+Version:
+Section: free
+Priority: optional
+Depends: network-manager
+Suggests:
+Architecture:
+Installed-Size:
+Maintainer: Manx98
+Provides: Manx98
+Description: A raspberry pi web panel

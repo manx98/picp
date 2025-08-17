@@ -1,0 +1,4 @@
+#!/bin/sh
+systemctl disable picp
+systemctl stop picp
+exit 0

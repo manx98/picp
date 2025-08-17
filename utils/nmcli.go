@@ -349,6 +349,7 @@ func RemoveConnectionByID(name string) error {
 }
 
 var ErrPasswordsRequired = errors.New("passwords required")
+var ErrNoNetwork = errors.New("network not found")
 
 func UpConnection(uuid string) error {
 	out, err := runCmd("nmcli", "connection", "up", "uuid", uuid)
@@ -451,6 +452,17 @@ func ListWifiAP(ifName string) ([]WifiAPInfo, error) {
 	return ret, nil
 }
 
+func ForceScan() error {
+	cmd, err := runCmd("nmcli", "-t", "device", "wifi", "list", "--rescan", "yes")
+	if err != nil {
+		logger.Warn("failed to force scan", zap.String("out", cmd), zap.Error(err))
+		return err
+	} else {
+		logger.Debug("force scan", zap.String("out", cmd))
+		return nil
+	}
+}
+
 type WifiAPSetting struct {
 	Name       string `json:"-"`
 	SSID       string `json:"SSID,omitempty"`
@@ -487,6 +499,9 @@ func (w *WifiAPSetting) toCmd() (cmd []string) {
 func ConnectWifi(info WifiAPSetting) error {
 	out, err := runCmd("nmcli", info.toCmd()...)
 	if err != nil {
+		if strings.HasPrefix(err.Error(), "Error: No network with SSID") {
+			return ErrNoNetwork
+		}
 		logger.Warn("run nmcli device wifi connect failed", zap.Error(err))
 		return err
 	} else {

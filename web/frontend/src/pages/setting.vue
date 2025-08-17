@@ -2,6 +2,7 @@
 import { shallowRef } from 'vue'
 import DisplayPanel from '~/components/DisplayPanel.vue'
 import FanPanel from '~/components/FanPanel.vue'
+import LoginSetting from '~/components/LoginSetting.vue'
 import WifiApPanel from '~/components/WifiApPanel.vue'
 
 const current_tab = shallowRef('fan')
@@ -10,13 +11,16 @@ const current_tab = shallowRef('fan')
 <template>
   <el-tabs v-model="current_tab" style="padding: 20px" type="card">
     <el-tab-pane label="扇热" name="fan">
-      <FanPanel :show="current_tab === 'fan'" />
+      <FanPanel v-if="current_tab === 'fan'" />
     </el-tab-pane>
     <el-tab-pane label="网络" name="wifi">
-      <WifiApPanel :show="current_tab === 'wifi'" />
+      <WifiApPanel v-if="current_tab === 'wifi'" />
     </el-tab-pane>
     <el-tab-pane label="显示" name="display">
-      <DisplayPanel :show="current_tab === 'display'" />
+      <DisplayPanel v-if="current_tab === 'display'" />
+    </el-tab-pane>
+    <el-tab-pane label="登陆" name="login">
+      <LoginSetting v-if="current_tab === 'login'" />
     </el-tab-pane>
   </el-tabs>
 </template>

@@ -1,12 +1,8 @@
 <script setup>
 import axios from 'axios'
-import { computed, defineProps, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import {computed, onBeforeUnmount, onMounted, ref, shallowRef, watch} from 'vue'
 import { getDisplayConfig, setDisplayConfig } from '~/api/index.js'
 import { showInfo } from '~/utils/index.js'
-
-const props = defineProps({
-  show: Boolean,
-})
 
 const defaultValue = {
   addr: '3c',
@@ -16,6 +12,7 @@ const defaultValue = {
   vcc_state: 0,
   width: 128,
   screen_size: '128x64',
+  status_interval: 1,
 }
 const old = ref({ ...defaultValue })
 const data = ref({ ...defaultValue })
@@ -42,6 +39,7 @@ function getCfg() {
       enable: rsp.enable,
       vcc_state: rsp.vcc_state,
       screen_size: `${rsp.width}x${rsp.height}`,
+      status_interval: rsp.status_interval,
     }
     Object.assign(old.value, value)
     Object.assign(data.value, value)
@@ -60,16 +58,7 @@ function getCfg() {
   })
 }
 
-watch(() => props.show, (value) => {
-  if (value) {
-    getCfg()
-  }
-  else {
-    cancelRequest()
-  }
-}, {
-  immediate: true,
-})
+onMounted(getCfg)
 
 function cancelRequest() {
   if (lastReq) {
@@ -86,6 +75,7 @@ const need_update = computed(() => {
     || data.value.enable !== old.value.enable
     || data.value.vcc_state !== old.value.vcc_state
     || data.value.screen_size !== old.value.screen_size
+    || data.value.status_interval !== old.value.status_interval
 })
 function checkAddr(rule, value, callback) {
   if (/^[0-9a-f]+$/i.test(value)) {
@@ -121,6 +111,7 @@ function submitForm(formEl) {
         vcc_state: data.value.vcc_state,
         width: size[0],
         height: size[1],
+        status_interval: data.value.status_interval,
       })
       loading.value = true
       lastReq.rsp.then(() => {
@@ -147,7 +138,7 @@ function submitForm(formEl) {
     </template>
   </el-empty>
   <div v-show="!showEmpty" v-loading="loading" style="max-width: 300px; text-align: right">
-    <el-form ref="formRef" :model="data" :rules="formRules">
+    <el-form ref="formRef" :model="data" :rules="formRules" label-width="auto">
       <el-form-item label="启用" prop="enable">
         <el-checkbox v-model="data.enable" />
       </el-form-item>
@@ -177,6 +168,13 @@ function submitForm(formEl) {
           <el-option :value="0" label="External" />
           <el-option :value="1" label="SwitchCAP" />
         </el-select>
+      </el-form-item>
+      <el-form-item label="刷新间隔" prop="status_interval">
+        <el-input-number v-model="data.status_interval" :min="1">
+          <template #prefix>
+            秒
+          </template>
+        </el-input-number>
       </el-form-item>
     </el-form>
     <el-button type="primary" :disabled="!need_update" @click="submitForm(formRef)">

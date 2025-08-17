@@ -7,7 +7,7 @@ import (
 
 var fan = FanChanelCfg{
 	Enable:  false,
-	Pin:     14,
+	Pin:     12,
 	Speed:   60,
 	MaxTemp: 50,
 	MinTemp: 45,
@@ -16,10 +16,14 @@ var fan = FanChanelCfg{
 type FanChanelCfg struct {
 	cfg     *ini.Section `ini:"-"`
 	Enable  bool         `json:"enable" ini:"enable,omitempty"`
-	Pin     int          `json:"pin" ini:"pin,omitempty" validator:"contains=12,13,40,41,45,18,19"`
-	Speed   int          `json:"speed" ini:"speed,omitempty" validator:"gt=0,lte=100"`
-	MinTemp float32      `json:"min_temp" ini:"min_temp,omitempty" validator:"gte=0"`
-	MaxTemp float32      `json:"max_temp" ini:"max_temp,omitempty" validator:"gte=0"`
+	Pin     int          `json:"pin" ini:"pin,omitempty" validate:"oneof=12 13 40 41 45 18 19"`
+	Speed   int          `json:"speed" ini:"speed,omitempty" validate:"gt=0,lte=100"`
+	MinTemp float32      `json:"min_temp" ini:"min_temp,omitempty" validate:"gte=0,ltfield=MaxTemp"`
+	MaxTemp float32      `json:"max_temp" ini:"max_temp,omitempty" validate:"gte=0"`
+}
+
+func (c *FanChanelCfg) NeedValidate() bool {
+	return c.Enable
 }
 
 func initFan() {
@@ -45,6 +49,12 @@ func SetFanCfg(cfg *FanChanelCfg) (err error) {
 	}
 	cfgLock.Lock()
 	defer cfgLock.Unlock()
+	old := fan
+	defer func() {
+		if err != nil {
+			fan = old
+		}
+	}()
 	fan.Enable = cfg.Enable
 	fan.Pin = cfg.Pin
 	fan.Speed = cfg.Speed

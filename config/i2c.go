@@ -7,8 +7,8 @@ import (
 
 type IICConfig struct {
 	Enable bool `json:"enable" ini:"enable"`
-	Bus    int  `json:"bus" ini:"bus,omitempty" validator:"gte=0,lte=1"`
-	Addr   int  `json:"addr" ini:"addr,omitempty" validator:"get=0,lte=254"`
+	Bus    int  `json:"bus" ini:"bus,omitempty" validate:"required,gte=0,lte=1"`
+	Addr   int  `json:"addr" ini:"addr,omitempty" validate:"required,gte=0,lte=254"`
 }
 
 var ErrorSensorDisabled = errors.New("sensor is disabled")

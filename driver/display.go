@@ -179,7 +179,7 @@ func DisplayAllAlign(msg ...string) {
 	}
 }
 
-func SetDisplayConfig(cfg *config.SH1106Config) error {
+func resetDisplay(cfg *config.SH1106Config) error {
 	err := config.Validate(cfg)
 	if err != nil {
 		return err
@@ -201,10 +201,27 @@ func SetDisplayConfig(cfg *config.SH1106Config) error {
 		_ = display.Close()
 	}
 	display = device
-	if display == nil {
-		_ = statusRunner.Stop(context.Background())
-	} else {
+	return nil
+}
+
+func SetDisplayConfig(cfg *config.SH1106Config) error {
+	err := resetDisplay(cfg)
+	if err != nil {
+		return err
+	}
+	_ = statusRunner.Stop(context.Background())
+	if display != nil {
 		statusRunner.Start()
 	}
 	return nil
+}
+
+func closeDisplay() {
+	displayLock.Lock()
+	defer displayLock.Unlock()
+	if display != nil {
+		_ = display.Close()
+		display = nil
+	}
+	return
 }

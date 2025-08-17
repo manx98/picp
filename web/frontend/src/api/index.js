@@ -5,9 +5,8 @@ function handlerResponse(response) {
     if (response.data.code === 200) {
       return response.data.data
     }
-    else if (response.status === 401) {
-      location.reload()
-      return
+    else if (response.data.code === 401) {
+      window.location.href = '/login'
     }
     throw new Error(response.data.msg)
   }
@@ -104,4 +103,16 @@ export function getDisplayConfig() {
 
 export function setDisplayConfig(cfg) {
   return sendPost('/api/display', cfg)
+}
+
+export function login(data) {
+  return sendPost('/api/login', data)
+}
+
+export function setLoginSetting(data) {
+  return sendPost('/api/login_setting', data)
+}
+
+export function getLoginSetting() {
+  return sendGet('/api/login_setting')
 }

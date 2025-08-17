@@ -15,8 +15,12 @@ import (
 
 var vid *validator.Validate
 
-var cfgPath = flag.String("c", "config.ini", "config file path")
+var cfgPath = flag.String("c", "picp.ini", "config file path")
 var rootCfg *ini.File
+
+type NeedValidateFunc interface {
+	NeedValidate() bool
+}
 
 func Init() {
 	vid = validator.New()
@@ -67,8 +71,11 @@ func StrictMapTo(cfg *ini.Section, obj interface{}) error {
 	logger.Debug("map config success", zap.String("name", cfg.Name()), zap.Any("cfg", obj))
 	return nil
 }
-func Validate(config interface{}) error {
-	return vid.Struct(config)
+func Validate(config interface{}) (err error) {
+	if obj, ok := config.(NeedValidateFunc); !ok || obj.NeedValidate() {
+		err = vid.Struct(config)
+	}
+	return err
 }
 
 func initLogger() {

@@ -1,0 +1,10 @@
+#!/bin/sh
+if [ "$1" = "purge" ] || [ "$1" = "remove" ]
+then
+  if [ -d /opt/picp ]
+  then
+    rm -rf /opt/picp
+  fi
+fi
+systemctl daemon-reload
+exit 0

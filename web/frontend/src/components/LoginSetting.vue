@@ -1,17 +1,16 @@
 <script setup>
 import axios from 'axios'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
-import { getWifiConfig, setWifiConfig } from '~/api/index.js'
+import { getLoginSetting, setLoginSetting } from '~/api/index.js'
 import { showInfo } from '~/utils/index.js'
 
 let lastReq = null
 
 const defaultValue = {
-  device_name: '',
-  enable: false,
+  enabled: false,
+  user: '',
   password: '',
-  pin: 25,
-  ssid: '',
+  max_age: 1,
 }
 const old = ref({ ...defaultValue })
 const formData = ref({ ...defaultValue })
@@ -20,14 +19,17 @@ const loading = shallowRef(false)
 const formRef = ref()
 function getCfg() {
   loading.value = true
-  lastReq = getWifiConfig()
+  lastReq = getLoginSetting()
   lastReq.rsp.then((data) => {
+    data.enabled = !!data.user
+    data.password = ''
     Object.assign(old.value, data)
     Object.assign(formData.value, data)
     showEmpty.value = false
     if (formRef.value) {
       formRef.value.clearValidate()
     }
+    showEmpty.value = false
   }).catch((err) => {
     if (axios.isCancel(err)) {
       return
@@ -39,6 +41,7 @@ function getCfg() {
   })
 }
 
+onMounted(getCfg)
 function cancelRequest() {
   if (lastReq) {
     lastReq.cancel()
@@ -47,25 +50,30 @@ function cancelRequest() {
     formRef.value.clearValidate()
   }
 }
-onMounted(getCfg)
 onBeforeUnmount(cancelRequest)
-
 function resetForm() {
   formData.value = { ...old.value }
 }
-
-function submitForm() {
-  formRef.value.validate((valid) => {
+function submitForm(formEl) {
+  formEl.validate((valid) => {
     if (valid) {
       loading.value = true
-      lastReq = setWifiConfig({
-        device_name: formData.value.device_name,
-        enable: formData.value.enable,
-        password: formData.value.password,
-        pin: formData.value.pin,
-        ssid: formData.value.ssid,
-      })
+      const value = {
+        max_age: formData.value.max_age,
+      }
+      if (formData.value.enabled) {
+        value.user = formData.value.user
+        value.password = formData.value.password
+      }
+      else {
+        value.user = ''
+        value.password = ''
+      }
+      lastReq = setLoginSetting(value)
       lastReq.rsp.then(() => {
+        formData.value.user = value.user
+        formData.value.password = value.password
+        formData.value.max_age = value.max_age
         old.value = { ...formData.value }
       }).catch((err) => {
         if (axios.isCancel(err)) {
@@ -78,16 +86,13 @@ function submitForm() {
     }
   })
 }
-const need_update = computed(() => {
-  if(formData.value.enable) {
-    return formData.value.device_name !== old.value.device_name
-        || formData.value.enable !== old.value.enable
-        || formData.value.password !== old.value.password
-        || formData.value.pin !== old.value.pin
-        || formData.value.ssid !== old.value.ssid
-  } else {
-    return formData.value.enable !== old.value.enable
+const can_update = computed(() => {
+  if (formData.value.enabled) {
+    return formData.value.user !== old.value.user
+      || formData.value.password !== old.value.password
+      || formData.value.max_age !== old.value.max_age
   }
+  return formData.value.enabled !== old.value.enabled
 })
 </script>
 
@@ -101,34 +106,29 @@ const need_update = computed(() => {
   </el-empty>
   <div v-show="!showEmpty" v-loading="loading" style="max-width: 300px;text-align: center">
     <el-form
-      ref="formRef"
-      v-model:model="formData" label-width="auto" :rules="{
-        ssid: { required: true, message: 'SSID不能为空', trigger: 'blur' },
-        password: { trigger: 'blur',
-                    validator: (rule, value, callback) => {
-                      if (value === '' || value.length >= 8) {
-                        callback()
-                      }
-                      else {
-                        callback(new Error('密码长度至少为8位'))
-                      }
-                    } },
+      ref="formRef" v-model:model="formData" label-width="auto" :rules="{
+        user: [{ required: true, message: '用户名不能为空' }],
+        password: [{ required: true, message: '密码不能为空' }],
       }"
     >
       <el-form-item label="启用" prop="enabled">
-        <el-checkbox v-model="formData.enable" />
+        <el-checkbox v-model="formData.enabled" />
       </el-form-item>
-      <el-form-item v-if="formData.enable" label="SSID" prop="ssid" style="padding-bottom: 10px">
-        <el-input v-model="formData.ssid" />
+      <el-form-item v-if="formData.enabled" label="用户名" prop="user">
+        <el-input v-model="formData.user" />
       </el-form-item>
-      <el-form-item v-if="formData.enable" label="密码" prop="password" style="padding-bottom: 10px">
-        <el-input v-model="formData.password" show-password />
+      <el-form-item v-if="formData.enabled" label="密码" prop="password">
+        <el-input v-model="formData.password" type="password" show-password />
       </el-form-item>
-      <el-form-item v-if="formData.enable" label="引脚" prop="pin">
-        <PinSelector v-model:pin="formData.pin" />
+      <el-form-item v-if="formData.enabled" label="Cookie有效期" prop="max_age">
+        <el-input-number v-model="formData.max_age" :min="1">
+          <template #suffix>
+            小时
+          </template>
+        </el-input-number>
       </el-form-item>
     </el-form>
-    <el-button type="primary" :disabled="!need_update" @click="submitForm">
+    <el-button type="primary" :disabled="!can_update" @click="submitForm(formRef)">
       应用
     </el-button>
     <el-button @click="resetForm">

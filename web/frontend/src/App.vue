@@ -1,16 +1,28 @@
 <script setup>
-import { onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import { MdMoreHoriz, MdSettings, MdSettingsEthernet } from 'vue-icons-plus/md'
 import { useRouter } from 'vue-router'
 import { windows_size } from '~/utils/index.js'
 
 const router = useRouter()
 
-const current = ref('/')
+const showNavPath = new Set(['/', '/setting', '/wifi'])
 
-onMounted(() => {
-  if (router.currentRoute.value.name === '/setting') {
-    current.value = router.currentRoute.value.name
+const current = computed(() => {
+  if (router.currentRoute) {
+    if (router.currentRoute.value.name === '/setting') {
+      return router.currentRoute.value.name
+    }
+  }
+  return '/'
+})
+
+const hiddenNav = computed(() => {
+  if (router.currentRoute) {
+    return !showNavPath.has(router.currentRoute.value.name)
+  }
+  else {
+    return false
   }
 })
 
@@ -21,18 +33,21 @@ watch(windows_size, (newVal) => {
   immediate: true,
 })
 const showDrawer = shallowRef(false)
+function logout() {
+  window.location.href = '/logout'
+}
 </script>
 
 <template>
   <el-config-provider namespace="ep">
     <el-container>
-      <el-affix v-if="is_mobile" offset="200">
+      <el-affix v-if="is_mobile && !hiddenNav" offset="200">
         <el-button style="opacity: 0.7" size="small" type="primary" @click="showDrawer = true">
           <MdMoreHoriz />
         </el-button>
       </el-affix>
       <el-drawer
-        v-if="is_mobile"
+        v-if="is_mobile && !hiddenNav"
         v-model:model-value="showDrawer"
         :with-header="false"
         direction="ltr"
@@ -51,9 +66,14 @@ const showDrawer = shallowRef(false)
               设置
             </template>
           </el-menu-item>
+          <div style="text-align: center;margin-top: 50px">
+            <el-button :disabled="false" type="primary" size="small" @click="logout">
+              退出登陆
+            </el-button>
+          </div>
         </el-menu>
       </el-drawer>
-      <el-aside v-else width="150px">
+      <el-aside v-if="!is_mobile && !hiddenNav" width="110px">
         <el-scrollbar>
           <el-menu router style="height:100vh" :default-active="current">
             <el-menu-item index="/">
@@ -68,6 +88,11 @@ const showDrawer = shallowRef(false)
                 设置
               </template>
             </el-menu-item>
+            <div style="text-align: center;margin-top: 50px">
+              <el-button :disabled="false" type="primary" size="small" @click="logout">
+                退出登陆
+              </el-button>
+            </div>
           </el-menu>
         </el-scrollbar>
       </el-aside>

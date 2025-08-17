@@ -1,12 +1,12 @@
 <script setup>
-import {computed, onBeforeUnmount, onMounted, ref, shallowRef} from 'vue'
+import axios from 'axios'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { MdRefresh, MdSearch } from 'vue-icons-plus/md'
 import { useRouter } from 'vue-router'
 import { createWifiAp, deleteWifiAp, listWifiAp } from '~/api'
 import ConfirmDialog from '~/components/ConfirmDialog.vue'
 import WifiConnectDialog from '~/components/WifiConnectDialog.vue'
 import { showInfo, windows_size } from '~/utils'
-import axios from 'axios'
 
 const router = useRouter()
 
@@ -24,13 +24,15 @@ onBeforeUnmount(() => {
 
 function doFilterInputKey() {
   wifiList.value = oldValue.filter((item) => {
-    if(filterInputKey.value && filterInputKey.value.length > 0) {
+    if (!(filterInputKey.value && filterInputKey.value.length > 0)) {
+      return true
+    }
+    else {
       if (item.SSID) {
-        return item.SSID.indexOf(filterInputKey.value) !== -1
+        return item.SSID.includes(filterInputKey.value)
       }
       return false
     }
-    return true
   })
 }
 function loadWifiAp() {
@@ -52,7 +54,7 @@ function loadWifiAp() {
     oldValue = apList
     doFilterInputKey()
   }).catch((err) => {
-    if(axios.isCancel(err)) {
+    if (axios.isCancel(err)) {
       return
     }
     oldValue = []
@@ -92,7 +94,7 @@ function configWifi({ config, done }) {
     loadWifiAp()
     done()
   }).catch((e) => {
-    if(axios.isCancel(e)){
+    if (axios.isCancel(e)) {
       return
     }
     done(e.message)
@@ -123,7 +125,7 @@ function changeConnectionState(connection_uuid, active, done) {
     showConfirmDialog.value = false
     loadWifiAp()
   }).catch((e) => {
-    if(axios.isCancel(e)) {
+    if (axios.isCancel(e)) {
       return
     }
     showInfo(true, e.message)
@@ -153,13 +155,13 @@ function showDeleteConfirm(row) {
 
 function doConfirm(done) {
   if (confirmType.value === 0) {
-    lastReq=deleteWifiAp(confirmRow.value.connection_uuid)
+    lastReq = deleteWifiAp(confirmRow.value.connection_uuid)
     lastReq.rsp.then(() => {
       showConfirmDialog.value = false
       loadWifiAp()
     })
     lastReq.rsp.catch((e) => {
-      if(axios.isCancel(e)) {
+      if (axios.isCancel(e)) {
         return
       }
       showInfo(true, e.message)
@@ -205,12 +207,12 @@ function doShowDisconnectConfirm(row) {
   </ConfirmDialog>
   <WifiConnectDialog v-model:show="show_wifi_connect" :info="configInfo" @ok="configWifi" />
   <div style="display:flex; flex-direction: row;align-items: center;justify-items: center;padding: 20px 20px 0 20px">
-    <el-input v-model:model-value="filterInputKey" style="max-width: 400px" @keydown.enter="doFilterInputKey" :disabled="loading" clearable @clear="doFilterInputKey">
+    <el-input v-model:model-value="filterInputKey" style="max-width: 400px" :disabled="loading" clearable @keydown.enter="doFilterInputKey" @clear="doFilterInputKey">
       <template #prefix>
         <span>名称</span>
       </template>
       <template #append>
-        <el-button type="text" :icon="MdSearch" @click="doFilterInputKey"/>
+        <el-button type="text" :icon="MdSearch" @click="doFilterInputKey" />
       </template>
     </el-input>
     <el-button style="margin-left: 10px;width: 100px" type="primary" :icon="MdRefresh" :disabled="loading" @click="loadWifiAp">

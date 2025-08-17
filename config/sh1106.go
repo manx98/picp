@@ -14,18 +14,24 @@ var SH1106 = SH1106Config{
 		Bus:    1,
 		Addr:   0x3C,
 	},
-	Width:    128,
-	Height:   64,
-	VccState: 0,
+	Width:          128,
+	Height:         64,
+	VccState:       0,
+	StatusInterval: 1,
 }
 var sh1106Lock sync.Mutex
 
 type SH1106Config struct {
-	cfg       *ini.Section `ini:"-"`
-	IICConfig `ini:",extends"`
-	Height    int `json:"height" ini:"height,omitempty" validator:"gt=0,lt=32767"`
-	Width     int `json:"width" ini:"width,omitempty" validator:"gt=0,lt=32767"`
-	VccState  int `json:"vcc_state" ini:"vcc_state,omitempty" validator:"get=0,lte=1"`
+	cfg            *ini.Section `ini:"-"`
+	IICConfig      `ini:",extends"`
+	Height         int `json:"height" ini:"height,omitempty" validate:"required,gt=0,lt=32767"`
+	Width          int `json:"width" ini:"width,omitempty" validate:"required,gt=0,lt=32767"`
+	VccState       int `json:"vcc_state" ini:"vcc_state,omitempty" validate:"oneof=0 1"`
+	StatusInterval int `json:"status_interval" ini:"status_interval,omitempty" validate:"gt=0"`
+}
+
+func (c *SH1106Config) NeedValidate() bool {
+	return c.Enable
 }
 
 func (c *SH1106Config) GetMode() sh1106.VccMode {
@@ -52,12 +58,19 @@ func GetSH1106Cfg() SH1106Config {
 	return SH1106
 }
 
-func SaveSH1106(cfg *SH1106Config) error {
+func SaveSH1106(cfg *SH1106Config) (err error) {
+	old := SH1106
+	defer func() {
+		if err != nil {
+			SH1106 = old
+		}
+	}()
 	SH1106.IICConfig = cfg.IICConfig
 	SH1106.Height = cfg.Height
 	SH1106.Width = cfg.Width
 	SH1106.VccState = cfg.VccState
-	err := SH1106.cfg.ReflectFrom(&SH1106)
+	SH1106.StatusInterval = cfg.StatusInterval
+	err = SH1106.cfg.ReflectFrom(&SH1106)
 	if err != nil {
 		return err
 	}

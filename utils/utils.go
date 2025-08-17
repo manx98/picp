@@ -3,6 +3,8 @@ package utils
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"github.com/shirou/gopsutil/net"
 	"go.uber.org/zap"
@@ -133,4 +135,9 @@ func NewRunner(ctx context.Context, callback func(ctx context.Context)) *Runner 
 		callback: callback,
 	}
 	return tr
+}
+
+func Sha1Sum(data string) string {
+	sum := sha1.Sum([]byte(data))
+	return hex.EncodeToString(sum[:])
 }

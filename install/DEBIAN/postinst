@@ -1,0 +1,14 @@
+#!/bin/sh
+if [ -f /opt/picp/picp.ini.bak ]
+then
+    if mv /opt/picp/picp.ini.bak /opt/picp/picp.ini
+    then
+      echo "restore backup config file success"
+    else
+      echo "failed to restore backup config file"
+    fi
+fi
+systemctl daemon-reload
+systemctl enable picp.service
+systemctl start picp.service
+exit 0

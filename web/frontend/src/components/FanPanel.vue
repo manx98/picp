@@ -1,12 +1,8 @@
 <script setup>
 import axios from 'axios'
-import { computed, defineProps, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { getFanConfig, setFanConfig } from '~/api/index.js'
 import { showInfo } from '~/utils/index.js'
-
-const props = defineProps({
-  show: Boolean,
-})
 
 let lastReq = null
 
@@ -44,25 +40,15 @@ function getCfg() {
   })
 }
 
-watch(() => props.show, (value) => {
-  if (value) {
-    getCfg()
-  }
-  else {
-    cancelRequest()
-  }
-}, {
-  immediate: true,
-})
-
 function cancelRequest() {
   if (lastReq) {
     lastReq.cancel()
   }
-  if(formRef.value) {
+  if (formRef.value) {
     formRef.value.clearValidate()
   }
 }
+onMounted(getCfg)
 onBeforeUnmount(cancelRequest)
 function resetForm() {
   formData.value = { ...old.value }
@@ -105,17 +91,18 @@ const can_update = computed(() => {
     </template>
   </el-empty>
   <div v-show="!showEmpty" v-loading="loading" style="max-width: 300px;text-align: center">
-    <el-form ref="formRef" v-model:model="formData">
+    <el-form ref="formRef" v-model:model="formData" label-width="auto">
       <el-form-item label="启用" prop="enabled">
         <el-checkbox v-model="formData.enable" />
       </el-form-item>
-      <el-form-item label="温度" prop="temp" style="padding-bottom: 10px">
+      <el-form-item label="温度" prop="temp" style="padding-bottom: 30px">
         <el-slider
           v-model:model-value="formData.temp" :step="1" :min="30" :max="80" range :marks="{
-            1: '1°C',
             30: '30°C',
+            40: '40°C',
+            50: '50°C',
             60: '60°C',
-            80: '80°C',
+            70: '70°C',
           }"
         />
       </el-form-item>

@@ -5,6 +5,7 @@ import (
 	"github.com/stianeikeland/go-rpio/v4"
 	"picp/config"
 	"picp/utils"
+	"strings"
 	"time"
 )
 
@@ -16,7 +17,7 @@ func wifiInit(ctx context.Context) {
 }
 
 type WifiInvoker struct {
-	cfg           *config.WifiConfig
+	cfg           *config.Wifi
 	enabled       bool
 	notifyTimeout time.Time
 	ctx           context.Context
@@ -29,7 +30,7 @@ func (i *WifiInvoker) startAp() {
 		i.enabled = true
 		i.showNotify("Connect success")
 	} else {
-		i.showNotify("Connect occur error")
+		i.showNotify(strings.Split(err.Error(), "\n")...)
 	}
 }
 
@@ -40,7 +41,7 @@ func (i *WifiInvoker) stopAp() {
 		i.enabled = false
 		i.showNotify("Stop success")
 	} else {
-		i.showNotify("Stop occur error")
+		i.showNotify(strings.Split(err.Error(), "\n")...)
 	}
 }
 
@@ -55,17 +56,17 @@ func (i *WifiInvoker) checkNotify(force bool) bool {
 	return false
 }
 
-func (i *WifiInvoker) showNotify(msg string) {
+func (i *WifiInvoker) showNotify(msg ...string) {
 	StatusShowEnable(false)
 	i.notifyTimeout = time.Now().Add(time.Second * 3)
-	DisplayAllAlign(msg)
+	DisplayVerticalAlign(msg...)
 }
 
 func (i *WifiInvoker) toggleAp() {
 	if i.enabled {
-		i.startAp()
-	} else {
 		i.stopAp()
+	} else {
+		i.startAp()
 	}
 }
 
@@ -79,6 +80,7 @@ func (i *WifiInvoker) Run() {
 	timer := time.NewTicker(time.Millisecond * 100)
 	defer func() {
 		timer.Stop()
+		_ = stopWifiAp(i.cfg)
 		StatusShowEnable(true)
 	}()
 	lastApPress := false
@@ -104,7 +106,7 @@ func (i *WifiInvoker) Run() {
 	}
 }
 
-func NewWifiInvoker(ctx context.Context, cfg *config.WifiConfig) *WifiInvoker {
+func NewWifiInvoker(ctx context.Context, cfg *config.Wifi) *WifiInvoker {
 	invoker := &WifiInvoker{cfg: cfg, ctx: ctx}
 	return invoker
 }
@@ -118,20 +120,28 @@ func wifiHandler(ctx context.Context) {
 	NewWifiInvoker(ctx, &cfg).Run()
 }
 
-func startWifiAp(cfg *config.WifiConfig) error {
-	return utils.ConnectWifi(utils.WifiAPSetting{
+func startWifiAp(cfg *config.Wifi) error {
+	err := utils.ForceScan()
+	if err != nil {
+		return err
+	}
+	err = utils.ConnectWifi(utils.WifiAPSetting{
 		Name:       cfg.Name,
 		SSID:       cfg.SSID,
 		DeviceName: cfg.DeviceName,
 		Password:   cfg.Password,
 	})
+	if err != nil {
+		_ = utils.RemoveConnectionByID(cfg.Name)
+	}
+	return err
 }
 
-func stopWifiAp(cfg *config.WifiConfig) error {
+func stopWifiAp(cfg *config.Wifi) error {
 	return utils.RemoveConnectionByID(cfg.Name)
 }
 
-func SetWifiConfig(wifi *config.WifiConfig) error {
+func SetWifiConfig(wifi *config.Wifi) error {
 	err := config.SetWifiConfig(wifi)
 	if err != nil {
 		return err
@@ -139,4 +149,8 @@ func SetWifiConfig(wifi *config.WifiConfig) error {
 	_ = wifiRunner.Stop(context.Background())
 	wifiRunner.Start()
 	return nil
+}
+
+func closeWifi() {
+	_ = wifiRunner.Stop(context.Background())
 }

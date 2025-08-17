@@ -73,3 +73,7 @@ func SetFanConfig(cfg *config.FanChanelCfg) error {
 	fanRunner.Start()
 	return nil
 }
+
+func closeFan() {
+	_ = fanRunner.Stop(context.Background())
+}

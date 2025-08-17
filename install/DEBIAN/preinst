@@ -1,0 +1,34 @@
+#!/bin/sh
+INSTALL_DIR="/opt/picp"
+if [ ! -d "$INSTALL_DIR" ]; then
+    if ! mkdir -p "$INSTALL_DIR"; then
+      echo "failed to mkdir => $INSTALL_DIR"
+      exit 1
+    fi
+fi
+
+if [ "$1" = "upgrade" ]; then
+  if [ -d "$INSTALL_DIR" ]
+  then
+    for file_name in "$INSTALL_DIR"/*
+    do
+      if [ "$file_name" = "${INSTALL_DIR}/picp.ini" ]; then
+        if mv "$file_name" "$file_name.bak"
+        then
+          echo "backup old config file success => $file_name"
+        else
+          echo "failed to backup old config file => $file_name"
+          exit 1
+        fi
+        continue
+      fi
+      if [ -d "$file_name" ]
+      then
+        rm -rf "$file_name"
+      else
+        rm -f "$file_name"
+      fi
+    done
+  fi
+fi
+exit 0

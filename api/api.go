@@ -24,6 +24,8 @@ func initApi(group *gin.RouterGroup) {
 	group.POST("/fan", setFanConfig)
 	group.GET("/display", getDisplayCfg)
 	group.POST("/display", setDisplayCfg)
+	group.GET("/login_setting", getLoginSetting)
+	group.POST("/login_setting", setLoginSetting)
 }
 
 func replayError(ctx *gin.Context, err error) {
@@ -175,7 +177,7 @@ func getWifiConfig(ctx *gin.Context) {
 }
 
 func setWifiConfig(ctx *gin.Context) {
-	var wifiCfg config.WifiConfig
+	var wifiCfg config.Wifi
 	if err := ctx.ShouldBindJSON(&wifiCfg); err != nil {
 		replayError(ctx, err)
 		return
