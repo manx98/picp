@@ -39,7 +39,7 @@ func checkTokenExpire() {
 		case <-ticker.C:
 			loginTokenLock.Lock()
 			for key, value := range loginToken {
-				if time.Now().Unix()-value > int64(config.Common.CookieMaxAge) {
+				if time.Now().Unix()-value > int64(config.Common.GetCookieMaxAge()) {
 					delete(loginToken, key)
 				}
 			}
@@ -106,7 +106,7 @@ func generateToken() (string, error) {
 		}
 		token := id.String()
 		if _, ok := loginToken[token]; !ok {
-			loginToken[token] = time.Now().Unix() + int64(config.Common.CookieMaxAge)
+			loginToken[token] = time.Now().Unix() + int64(config.Common.GetCookieMaxAge())
 			return token, nil
 		}
 	}
@@ -140,7 +140,7 @@ func doLogin(ctx *gin.Context) {
 		replayError(ctx, err)
 		return
 	}
-	ctx.SetCookie(cookieTokenKey, token, config.Common.CookieMaxAge, "/", "", false, true)
+	ctx.SetCookie(cookieTokenKey, token, config.Common.GetCookieMaxAge(), "/", "", false, true)
 	replaySuccess(ctx, nil)
 }
 
@@ -155,7 +155,7 @@ func getLoginSetting(ctx *gin.Context) {
 	defer loginTokenLock.RUnlock()
 	replaySuccess(ctx, LoginSetting{
 		User:   config.Common.User,
-		MaxAge: config.Common.CookieMaxAge / 60 / 60,
+		MaxAge: config.Common.CookieMaxAge,
 	})
 }
 func setLoginSetting(ctx *gin.Context) {
@@ -172,7 +172,7 @@ func setLoginSetting(ctx *gin.Context) {
 	}
 	loginTokenLock.Lock()
 	defer loginTokenLock.Unlock()
-	err = config.SetLoginSetting(query.User, query.Password, query.MaxAge*60*60)
+	err = config.SetLoginSetting(query.User, query.Password, query.MaxAge)
 	if err != nil {
 		replayError(ctx, err)
 		return

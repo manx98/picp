@@ -24,6 +24,10 @@ type common struct {
 	CookieMaxAge int          `ini:"cookie_max_age" validate:"gt=0"`
 }
 
+func (c *common) GetCookieMaxAge() int {
+	return c.CookieMaxAge * 60 * 60
+}
+
 func initCommon() {
 	var ok bool
 	Common.cfg, ok = Get("common")
@@ -33,7 +37,6 @@ func initCommon() {
 			logger.Fatal("map common config failed", zap.Error(err))
 		}
 	}
-	Common.CookieMaxAge *= 60 * 60
 }
 func SaveCfg() error {
 	return rootCfg.SaveTo(*cfgPath)
