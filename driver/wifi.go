@@ -49,7 +49,7 @@ func (i *WifiInvoker) checkNotify(force bool) bool {
 	if !i.notifyTimeout.IsZero() {
 		if force || time.Now().After(i.notifyTimeout) {
 			i.notifyTimeout = time.Time{}
-			StatusShowEnable(true)
+			statusRunner.StatusShowEnable(true)
 		}
 		return true
 	}
@@ -57,7 +57,7 @@ func (i *WifiInvoker) checkNotify(force bool) bool {
 }
 
 func (i *WifiInvoker) showNotify(msg ...string) {
-	StatusShowEnable(false)
+	statusRunner.StatusShowEnable(false)
 	i.notifyTimeout = time.Now().Add(time.Second * 3)
 	DisplayVerticalAlign(msg...)
 }
@@ -81,7 +81,7 @@ func (i *WifiInvoker) Run() {
 	defer func() {
 		timer.Stop()
 		_ = stopWifiAp(i.cfg)
-		StatusShowEnable(true)
+		statusRunner.StatusShowEnable(true)
 	}()
 	lastApPress := false
 	for {

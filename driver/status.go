@@ -14,30 +14,33 @@ import (
 	"time"
 )
 
-var statusRunner *utils.Runner
-var cpuPercent float64
-var cpuTemp float32
-var lastTxCount uint64
-var lastRxCount uint64
-var lastCountTime time.Time
-var txSpeed int64
-var rxSpeed int64
-var statusLock sync.Mutex
-var statusEnabled atomic.Bool
-var lastMsg []string
+var statusRunner StatusRunner
 
-func initStatusRunner(ctx context.Context) {
-	statusEnabled.Store(true)
-	statusRunner = utils.NewRunner(ctx, statusHandler)
+type StatusRunner struct {
+	*utils.Runner
+	cpuPercent    atomic.Float64
+	lastTxCount   uint64
+	lastRxCount   uint64
+	lastCountTime time.Time
+	txSpeed       atomic.Int64
+	rxSpeed       atomic.Int64
+	statusLock    sync.Mutex
+	statusEnabled atomic.Bool
+	lastMsg       []string
 }
 
-func statusHandler(ctx context.Context) {
+func initStatusRunner(ctx context.Context) {
+	statusRunner.statusEnabled.Store(true)
+	statusRunner.Runner = utils.NewRunner(ctx, statusRunner.statusHandler)
+}
+
+func (s *StatusRunner) statusHandler(ctx context.Context) {
 	interval := time.Second * time.Duration(config.SH1106.StatusInterval)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for ctx.Err() == nil {
-		if statusEnabled.Load() {
-			updateStatus(ctx, interval)
+		if s.statusEnabled.Load() {
+			s.updateStatus(ctx, interval)
 		}
 		select {
 		case <-ticker.C:
@@ -47,58 +50,62 @@ func statusHandler(ctx context.Context) {
 	}
 }
 
-func updateStatus(ctx context.Context, interval time.Duration) {
+func (s *StatusRunner) updateStatus(ctx context.Context, interval time.Duration) {
 	percent, err := cpu.PercentWithContext(ctx, interval, false)
 	if err != nil {
-		cpuPercent = -1
+		s.cpuPercent.Store(-1)
 		logger.Debug("cpu percent error", zap.Error(err))
 		return
 	} else if len(percent) > 0 {
-		cpuPercent = percent[0]
+		s.cpuPercent.Store(percent[0])
 	}
-	cpuTemp, err = utils.GetCpuTemperature()
+	s.updateSpeedCount(ctx)
+	s.statusLock.Lock()
+	defer s.statusLock.Unlock()
+	if s.statusEnabled.Load() {
+		s.DisplayStatus()
+	}
+}
+
+func (s *StatusRunner) updateSpeedCount(ctx context.Context) {
+	txCount, rxCount, err := utils.GetNetIoCounters(ctx)
+	if err != nil {
+		logger.Debug("get net io counters error", zap.Error(err))
+		s.lastCountTime = time.Time{}
+		s.txSpeed.Store(-1)
+		s.rxSpeed.Store(-1)
+		return
+	}
+	current := time.Now()
+	if !s.lastCountTime.IsZero() {
+		duration := time.Now().Sub(s.lastCountTime).Seconds()
+		if txCount > s.lastTxCount {
+			s.txSpeed.Store(int64(float64(txCount-s.lastTxCount) / duration))
+		}
+		if rxCount > s.lastRxCount {
+			s.txSpeed.Store(int64(float64(rxCount-s.lastRxCount) / duration))
+		}
+	}
+	s.lastTxCount = txCount
+	s.lastRxCount = rxCount
+	s.lastCountTime = current
+}
+
+func (s *StatusRunner) StatusShowEnable(enabled bool) {
+	s.statusLock.Lock()
+	defer s.statusLock.Unlock()
+	s.statusEnabled.Store(enabled)
+	if enabled {
+		s.DisplayStatus()
+	}
+}
+
+func (s *StatusRunner) DisplayStatus() {
+	cpuTemp, err := utils.GetCpuTemperature()
 	if err != nil {
 		cpuTemp = -1
 		logger.Debug("cpu temperature error", zap.Error(err))
 	}
-	updateSpeedCount(ctx)
-	displayStatus()
-}
-
-func updateSpeedCount(ctx context.Context) {
-	txCount, rxCount, err := utils.GetNetIoCounters(ctx)
-	if err != nil {
-		logger.Debug("get net io counters error", zap.Error(err))
-		lastCountTime = time.Time{}
-		txSpeed = -1
-		rxSpeed = -1
-		return
-	}
-	current := time.Now()
-	if !lastCountTime.IsZero() {
-		duration := time.Now().Sub(lastCountTime).Seconds()
-		if txCount > lastTxCount {
-			txSpeed = int64(float64(txCount-lastTxCount) / duration)
-		}
-		if rxCount > lastRxCount {
-			rxSpeed = int64(float64(rxCount-lastRxCount) / duration)
-		}
-	}
-	lastTxCount = txCount
-	lastRxCount = rxCount
-	lastCountTime = current
-}
-
-func StatusShowEnable(enabled bool) {
-	statusLock.Lock()
-	defer statusLock.Unlock()
-	statusEnabled.Store(enabled)
-	if enabled {
-		DisplayVerticalAlign(lastMsg...)
-	}
-}
-
-func displayStatus() {
 	total, used, err := utils.GetRootDiskInfo()
 	var diskPercent float64
 	if err != nil {
@@ -119,18 +126,11 @@ func displayStatus() {
 	} else {
 		logger.Warn("get memory info error", zap.Error(err))
 	}
-	statusLock.Lock()
-	defer statusLock.Unlock()
-	if statusEnabled.Load() {
-		lastMsg = []string{
-			"IP " + utils.GetHostIP(),
-			fmt.Sprintf("CPU %.1f%% %.2f℃", cpuPercent, cpuTemp),
-			fmt.Sprintf("MEM %s %.1f%%", utils.ByteSize(memUsed, 1024), memPercent),
-			fmt.Sprintf("DISK %s %.1f%%", utils.ByteSize(used, 1024), diskPercent),
-			fmt.Sprintf("↑%s/s ↓%s/s", utils.ByteSize(txSpeed, 100), utils.ByteSize(rxSpeed, 100)),
-		}
-		DisplayVerticalAlign(lastMsg...)
-	}
+	DisplayVerticalAlign("IP "+utils.GetHostIP(),
+		fmt.Sprintf("CPU %.1f%% %.2f℃", s.cpuPercent.Load(), cpuTemp),
+		fmt.Sprintf("MEM %s %.1f%%", utils.ByteSize(memUsed, 1024), memPercent),
+		fmt.Sprintf("DISK %s %.1f%%", utils.ByteSize(used, 1024), diskPercent),
+		fmt.Sprintf("↑%s/s ↓%s/s", utils.ByteSize(s.txSpeed.Load(), 100), utils.ByteSize(s.rxSpeed.Load(), 100)))
 }
 
 func closeStatus() {

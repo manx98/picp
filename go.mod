@@ -2,8 +2,6 @@ module picp
 
 go 1.23.0
 
-toolchain go1.24.6
-
 require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-ini/ini v1.67.0

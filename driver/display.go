@@ -59,9 +59,10 @@ func createDisplay(cfg *config.SH1106Config) (*sh1106.Device, error) {
 	} else {
 		var device *sh1106.Device
 		device, err = sh1106.NewI2C(bus, sh1106.Config{
-			Height:   int16(config.SH1106.Height),
-			VccState: config.SH1106.GetMode(),
-			Width:    int16(config.SH1106.Width),
+			Height:   int16(cfg.Height),
+			VccState: cfg.GetMode(),
+			Width:    int16(cfg.Width),
+			Invert:   cfg.Invert,
 		})
 		if err != nil {
 			_ = bus.Close()
@@ -126,7 +127,7 @@ func (o *DrawOptions) marginBottom() int {
 func drawText(width, height int, opt *DrawOptions, lines ...string) *image.Gray {
 	dst := image.NewGray(image.Rect(0, 0, width, height))
 	draw.Draw(dst, dst.Bounds(), image.Black, image.Point{}, draw.Src)
-	d := &font.Drawer{
+	d := font.Drawer{
 		Dst:  dst,
 		Src:  image.White,
 		Face: BoutiqueBitmap9x9FontFace,

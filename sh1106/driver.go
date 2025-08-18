@@ -74,6 +74,7 @@ type Device struct {
 	vccState     VccMode
 	lock         sync.Mutex
 	updatedPages int64
+	invert       bool
 }
 
 // Config is the configuration for the display
@@ -81,6 +82,7 @@ type Config struct {
 	Width    int16
 	Height   int16
 	VccState VccMode
+	Invert   bool
 }
 
 type VccMode uint8
@@ -99,6 +101,7 @@ func NewI2C(bus *i2c.I2C, cfg Config) (d *Device, err error) {
 		d.height = 64
 	}
 	d.bus = bus
+	d.invert = cfg.Invert
 	if cfg.VccState != 0 {
 		d.vccState = cfg.VccState
 	} else {
@@ -112,6 +115,13 @@ func NewI2C(bus *i2c.I2C, cfg Config) (d *Device, err error) {
 		return nil, fmt.Errorf("reset SH1106 occur error: %w", err)
 	}
 	return d, nil
+}
+
+func (d *Device) checkAndInvertPos(x, y *int16) {
+	if d.invert {
+		*x = d.width - *x - 1
+		*y = d.height - *y - 1
+	}
 }
 
 func (d *Device) Reset() error {
@@ -248,6 +258,7 @@ func (d *Device) SetPixel(x int16, y int16, c color.Gray) {
 	if x < 0 || x >= d.width || y < 0 || y >= d.height {
 		return
 	}
+	d.checkAndInvertPos(&x, &y)
 	byteIndex := x + (y/8)*d.width
 	pix := uint8(1) << uint8(y%8)
 	oldPix := d.buffer[byteIndex] & pix
@@ -266,6 +277,7 @@ func (d *Device) GetPixel(x int16, y int16) bool {
 	if x < 0 || x >= d.width || y < 0 || y >= d.height {
 		return false
 	}
+	d.checkAndInvertPos(&x, &y)
 	byteIndex := x + (y/8)*d.width
 	return (d.buffer[byteIndex] >> uint8(y%8) & 0x1) == 1
 }
@@ -284,8 +296,8 @@ func (d *Device) SetBuffer(buffer []byte) error {
 
 // Tx sends data to the display
 func (d *Device) tx(call func(builder *DataBuilder) error) (err error) {
-	builder := new(DataBuilder)
-	err = call(builder)
+	var builder DataBuilder
+	err = call(&builder)
 	if err == nil {
 		d.lock.Lock()
 		defer d.lock.Unlock()

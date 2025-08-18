@@ -13,6 +13,7 @@ const defaultValue = {
   width: 128,
   screen_size: '128x64',
   status_interval: 1,
+  invert: false,
 }
 const old = ref({ ...defaultValue })
 const data = ref({ ...defaultValue })
@@ -40,6 +41,7 @@ function getCfg() {
       vcc_state: rsp.vcc_state,
       screen_size: `${rsp.width}x${rsp.height}`,
       status_interval: rsp.status_interval,
+      invert: rsp.invert,
     }
     Object.assign(old.value, value)
     Object.assign(data.value, value)
@@ -76,6 +78,7 @@ const need_update = computed(() => {
     || data.value.vcc_state !== old.value.vcc_state
     || data.value.screen_size !== old.value.screen_size
     || data.value.status_interval !== old.value.status_interval
+    || data.value.invert !== old.value.invert
 })
 function checkAddr(rule, value, callback) {
   if (/^[0-9a-f]+$/i.test(value)) {
@@ -112,6 +115,7 @@ function submitForm(formEl) {
         width: size[0],
         height: size[1],
         status_interval: data.value.status_interval,
+        invert: data.value.invert,
       })
       loading.value = true
       lastReq.rsp.then(() => {
@@ -162,6 +166,9 @@ function submitForm(formEl) {
           <el-option value="128x64" />
           <el-option value="128x32" />
         </el-select>
+      </el-form-item>
+      <el-form-item label="反转" prop="invert">
+        <el-checkbox v-model="data.invert" />
       </el-form-item>
       <el-form-item label="VCC" prop="vcc_state">
         <el-select v-model="data.vcc_state">

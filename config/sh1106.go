@@ -24,10 +24,11 @@ var sh1106Lock sync.Mutex
 type SH1106Config struct {
 	cfg            *ini.Section `ini:"-"`
 	IICConfig      `ini:",extends"`
-	Height         int `json:"height" ini:"height,omitempty" validate:"required,gt=0,lt=32767"`
-	Width          int `json:"width" ini:"width,omitempty" validate:"required,gt=0,lt=32767"`
-	VccState       int `json:"vcc_state" ini:"vcc_state,omitempty" validate:"oneof=0 1"`
-	StatusInterval int `json:"status_interval" ini:"status_interval,omitempty" validate:"gt=0"`
+	Height         int  `json:"height" ini:"height,omitempty" validate:"required,gt=0,lt=32767"`
+	Width          int  `json:"width" ini:"width,omitempty" validate:"required,gt=0,lt=32767"`
+	VccState       int  `json:"vcc_state" ini:"vcc_state,omitempty" validate:"oneof=0 1"`
+	StatusInterval int  `json:"status_interval" ini:"status_interval,omitempty" validate:"gt=0"`
+	Invert         bool `json:"invert" ini:"invert"`
 }
 
 func (c *SH1106Config) NeedValidate() bool {
@@ -65,6 +66,7 @@ func SaveSH1106(cfg *SH1106Config) (err error) {
 			SH1106 = old
 		}
 	}()
+	SH1106.Invert = cfg.Invert
 	SH1106.IICConfig = cfg.IICConfig
 	SH1106.Height = cfg.Height
 	SH1106.Width = cfg.Width
