@@ -16,6 +16,7 @@ import (
 var engine *gin.Engine
 var loginToken map[string]int64
 var loginTokenLock sync.RWMutex
+var settingLock sync.Mutex
 
 const cookieTokenKey = "token"
 
@@ -26,7 +27,7 @@ func Run(server net.Listener) error {
 		Output: logger.GetWitter(),
 	}), gin.Recovery())
 	go checkTokenExpire()
-	initApi(engine.Group("/api", LoginMiddleware))
+	initApi(engine.Group("/api", LoginMiddleware, SettingMiddleware))
 	engine.POST("/api/login", doLogin)
 	web.Init(engine, isLogin, logout)
 	return engine.RunListener(server)
@@ -109,6 +110,19 @@ func generateToken() (string, error) {
 			loginToken[token] = time.Now().Unix() + int64(config.Common.GetCookieMaxAge())
 			return token, nil
 		}
+	}
+}
+
+func SettingMiddleware(ctx *gin.Context) {
+	if settingLock.TryLock() {
+		defer settingLock.Unlock()
+		ctx.Next()
+	} else {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"code": 400,
+			"msg":  "配置正在更新中，请稍后再试",
+		})
+		ctx.Abort()
 	}
 }
 
